@@ -9,8 +9,8 @@ COPY . /APP
 RUN apk --no-cache add ffmpeg \
     && mkdir /vids \
     && pip install --no-cache-dir -U yt-dlp \
-    && pip install --no-cache-dir -U Flask
-    # && pip install --no-cache-dir -U gunicorn
+    && pip install --no-cache-dir -U Flask \
+    && pip install --no-cache-dir -U gunicorn
     
 # start flask 
-ENTRYPOINT flask run --host=0.0.0.0 --port=5500
+ENTRYPOINT gunicorn -w 4 app:app -b 0.0.0.0:5500
