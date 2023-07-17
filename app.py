@@ -1,7 +1,9 @@
 import sys
 from multiprocessing import pool
+from multiprocessing import Queue
 import atexit
 import logging
+from logging.handlers import QueueListener
 
 import flask
 
@@ -13,12 +15,20 @@ app = flask.Flask("app")
 response_timeout = 1
 
 pool = pool.Pool()  # default is processor count
+queue = Queue()
 
+handler = logging.StreamHandler()
+process_listner = QueueListener(queue, handler)
+app.logger.addHandler(process_listner)
+process_listner.start()
 
 def end():  # this dosnt work quite right
+    process_listner.stop()
     print("closing pool")
     pool.close()
     print("pool closed")
+    process_listner.stop()
+    print("stopped listener")
 
 atexit.register(end)  # forcefully closes the pool when needed
 
@@ -37,7 +47,7 @@ def downloadvideo(url):
     # should check paramaters and throw 400
     # ydl_opts = flask.request.args.get('opts', None)
 
-    result = pool.apply_async(callytdl, args=(url, app.logger, ))
+    result = pool.apply_async(callytdl, args=(url, queue, ))
 
     result.wait(response_timeout)
 
