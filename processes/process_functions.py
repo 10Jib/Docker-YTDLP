@@ -11,18 +11,11 @@ from os import getpid
 import yt_dlp
 from yt_dlp.utils import YoutubeDLError
 
+print(f"mod is running {test}")
+
 default_ydl_opts = {'format':"mp4"}
 
-def end():  # this dosnt work quite right
-    process_listner.stop()
-    print("closing pool")
-    pool.close()
-    print("pool closed")
-    pool.join()
-    process_listner.stop()
-    print("stopped listener")
 
-atexit.register(end)  # forcefully closes the pool when needed
 
 # params too
 """cant be in the same module, but cant not be in the same moduel"""
@@ -67,24 +60,3 @@ def callytdl(url, params=default_ydl_opts):
     else:
         return result
 
-if __name__ == '__main__':
-    response_timeout = 1
-
-    ctx = get_context('fork')
-
-    global pool
-    pool = ctx.Pool()  # default is processor count
-
-    global queue
-    queue = ctx.Queue()
-
-    handler = logging.StreamHandler()
-    process_listner = QueueListener(queue, handler)
-    #app.logger.addHandler(process_listner)
-    process_listner.start()
-    #formatter = logging.Formatter('%(threadName)s: %(message)s')
-
-
-# so this would need to be a class
-# because I need something external to initiate the global vars
-# then those vars are inherited
