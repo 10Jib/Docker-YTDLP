@@ -12,23 +12,17 @@ import yt_dlp
 from yt_dlp.utils import YoutubeDLError
 
 default_ydl_opts = {'format':"mp4"}
-
-def end():  # this dosnt work quite right
-    process_listner.stop()
-    print("closing pool")
-    pool.close()
-    print("pool closed")
-    pool.join()
-    process_listner.stop()
-    print("stopped listener")
-
-atexit.register(end)  # forcefully closes the pool when needed
+response_timeout = 1
 
 # params too
 """cant be in the same module, but cant not be in the same moduel"""
-def startytdl(url, callback=None):
+def startytdl(url, callback=None, params=None):
     """For starting the ytdl process, and handling the variety of its outcomes."""
-    result = pool.apply_async(callytdl, args=(url, ))
+    if params:
+        result = pool.apply_async(callytdl, args=(url, params, ))
+    else:
+        result = pool.apply_async(callytdl, args=(url, ))
+        
     #return(result)
     result.wait(response_timeout)
 
@@ -36,7 +30,7 @@ def startytdl(url, callback=None):
         if isinstance(result, BaseException):
             return(f"Error occured:{result}", 500)
         else:
-            logging.info(f"Finished Downloading: {result.get().get('id', 'NO ID FOUND')}")
+            #logging.info(f"Finished Downloading: {result.get().get('id', 'NO ID FOUND')}")
             return(f"Finished Downloading: {result.get().get('id', 'NO ID FOUND')}", 200)
 
     else:
@@ -67,22 +61,34 @@ def callytdl(url, params=default_ydl_opts):
     else:
         return result
 
-if __name__ == '__main__':
-    response_timeout = 1
+def init(logger):
+
+    logging.info("starting queue resources")
 
     ctx = get_context('fork')
-
-    global pool
-    pool = ctx.Pool()  # default is processor count
 
     global queue
     queue = ctx.Queue()
 
+    global pool
+    pool = ctx.Pool()  # default is processor count
+
     handler = logging.StreamHandler()
     process_listner = QueueListener(queue, handler)
-    #app.logger.addHandler(process_listner)
+    logger.addHandler(process_listner)
     process_listner.start()
+    logging.info("setup finished")
     #formatter = logging.Formatter('%(threadName)s: %(message)s')
+
+    def end():  # this dosnt work quite right
+        process_listner.stop()
+        print("closing pool")
+        pool.close()
+        print("pool closed")
+        pool.join()
+        print("stopped listener")
+
+    atexit.register(end)  # forcefully closes the pool when needed
 
 
 # so this would need to be a class
