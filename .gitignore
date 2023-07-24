@@ -1,5 +1,6 @@
 mytests
-
+*.mp4
+*.part
 
 
 # Byte-compiled / optimized / DLL files

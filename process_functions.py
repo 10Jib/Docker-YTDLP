@@ -11,37 +11,38 @@ from os import getpid
 import yt_dlp
 from yt_dlp.utils import YoutubeDLError
 
-default_ydl_opts = {'format':"mp4"}
+
+default_ydl_opts = {'format':"mp4", "quiet":True, "noplaylist":True}
 response_timeout = 1
 
-# params too
-"""cant be in the same module, but cant not be in the same moduel"""
-def startytdl(url, callback=None, params=None):
+def startytdl(url, params=None, callback=None):
     """For starting the ytdl process, and handling the variety of its outcomes."""
     if params:
         result = pool.apply_async(callytdl, args=(url, params, ))
     else:
         result = pool.apply_async(callytdl, args=(url, ))
         
-    #return(result)
     result.wait(response_timeout)
 
     if result.ready():  # if the response is fast, its probably an error
-        if isinstance(result, BaseException):
-            return(f"Error occured:{result}", 500)
+        try:
+            id = result.get().get('id', 'NO ID FOUND')
+        except AttributeError as e:
+            logging.exception(f"Failed to get result. Probably because incorect usage: {e}")
+            return("Incorrect Usage of YTDLP", 500)
         else:
-            #logging.info(f"Finished Downloading: {result.get().get('id', 'NO ID FOUND')}")
-            return(f"Finished Downloading: {result.get().get('id', 'NO ID FOUND')}", 200)
+            return(f"Finished Downloading: {id}", 200)
 
     else:
         return("Download Started...", 200)
 
 def callytdl(url, params=default_ydl_opts):
     # shouldnt need this  global queue
-    logger = logging.getLogger(__name__)  # maybe a better name
+    logger = logging.getLogger("callytdlp")  # maybe a better name
     logger.addHandler(QueueHandler(queue))
+    logger.setLevel(logging.DEBUG)
 
-    params["logger"] = logger
+    params["logger"] = logger  # this might be hard with multiproc
 
     logger.debug(f"callytdl from pid:{getpid()} with params:{params.items()}")
 
@@ -61,9 +62,12 @@ def callytdl(url, params=default_ydl_opts):
     else:
         return result
 
-def init(logger):
+def init(logger=None):
+    global init
+    init = True
 
-    logging.info("starting queue resources")
+    if logger:
+        logger.info("starting queue resources")
 
     ctx = get_context('fork')
 
@@ -73,20 +77,17 @@ def init(logger):
     global pool
     pool = ctx.Pool()  # default is processor count
 
-    handler = logging.StreamHandler()
-    process_listner = QueueListener(queue, handler)
-    logger.addHandler(process_listner)
-    process_listner.start()
-    logging.info("setup finished")
-    #formatter = logging.Formatter('%(threadName)s: %(message)s')
+    if logger:
+        process_listner = QueueListener(queue, *logger.handlers)  # something isnt right here...
+        process_listner.start()
+        logging.info("setup finished")
 
     def end():  # this dosnt work quite right
         process_listner.stop()
         print("closing pool")
         pool.close()
         print("pool closed")
-        pool.join()
-        print("stopped listener")
+
 
     atexit.register(end)  # forcefully closes the pool when needed
 
